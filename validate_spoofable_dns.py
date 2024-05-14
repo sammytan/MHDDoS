@@ -4,22 +4,25 @@ import dns.message
 import dns.query
 import socket
 import random
-import concurrent.futures
-import os
-import argparse
+import requests
 
-# 解析命令行参数
-parser = argparse.ArgumentParser(description="Validate DNS servers for spoofing.")
-parser.add_argument('input_file', type=str, help="Input file with DNS servers (one per line).")
-parser.add_argument('output_file', type=str, help="Output file for valid spoofable DNS servers.")
-parser.add_argument('-t', '--threads', type=int, default=os.cpu_count(), help="Number of threads to use.")
-args = parser.parse_args()
-
-# 打开输入文件
-with open(args.input_file, 'r') as f:
-    dns_servers = [line.strip() for line in f]
+# 资源链接
+urls = [
+    "https://public-dns.info/nameservers.txt",
+    "https://github.com/opendnssec/parent/blob/develop/doc/examples/example.txt"
+]
 
 valid_servers = []
+
+# 获取公共 DNS 列表
+def fetch_public_dns(url):
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            return response.text.splitlines()
+    except Exception as e:
+        print(f"Failed to fetch DNS list from {url}: {e}")
+    return []
 
 # 生成一个 DNS 查询请求
 query = dns.message.make_query('example.com', dns.rdatatype.A)
@@ -41,21 +44,19 @@ def check_spoofable(server):
     finally:
         sock.close()
 
-def process_server(server):
-    if check_spoofable(server):
-        print(f"Valid and spoofable DNS server: {server}")
-        return server
-    return None
+def process_servers(servers):
+    for server in servers:
+        if check_spoofable(server):
+            valid_servers.append(server)
+            print(f"Valid and spoofable DNS server: {server}")
 
-# 使用 ThreadPoolExecutor 并发处理
-with concurrent.futures.ThreadPoolExecutor(max_workers=args.threads) as executor:
-    results = list(executor.map(process_server, dns_servers))
+# 从多个资源获取 DNS 列表
+for url in urls:
+    servers = fetch_public_dns(url)
+    process_servers(servers)
 
-# 过滤有效的服务器
-valid_servers = [server for server in results if server is not None]
-
-# 保存有效的 DNS 服务器到输出文件
-with open(args.output_file, 'w') as f:
+# 保存有效的 DNS 服务器到 reflectors.txt 文件
+with open('reflectors.txt', 'w') as f:
     for server in valid_servers:
         f.write(f"{server}\n")
 
