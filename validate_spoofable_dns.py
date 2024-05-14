@@ -7,7 +7,6 @@ import random
 import requests
 import concurrent.futures
 import argparse
-import os
 
 # ×ÊÔ´Á´½Ó
 urls = [
