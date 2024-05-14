@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import dns.message
 import dns.query
 import socket
